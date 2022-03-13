@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"grpc-go-course/greet/greetpb"
+	"io"
 	"log"
 )
 
@@ -16,16 +17,36 @@ func main() {
 	}
 	defer connection.Close()
 	client := greetpb.NewGreetServiceClient(connection)
-
-	doUnary(err, client)
+	ctx := context.TODO()
+	getServerStream(client, ctx)
+	//doUnary(err, client, &ctx)
 }
 
-func doUnary(err error, client greetpb.GreetServiceClient) {
-	greetRequest := greetpb.GreetRequest{Greeting: &greetpb.Greeting{FirstName: "Bartek", LastName: "DUUUPA"}}
-	greet, err := client.Greet(context.TODO(), &greetRequest)
+func getServerStream(client greetpb.GreetServiceClient, ctx context.Context) {
+	response, err := client.GreetManyTimes(ctx, &greetpb.GreetManyTimesRequest{
+		Greeting: &greetpb.Greeting{
+			FirstName: "Bartek",
+			LastName:  "Kmita",
+		},
+	})
 	if err != nil {
-		log.Print("Coś poszło nie tak")
+		log.Println("failed to create client")
+	}
+	for {
+		recv, err := response.Recv()
+		if err == io.EOF {
+			log.Println("reached end of file")
+			break
+		}
+		log.Println(recv.GetResult())
+	}
+}
 
+func doUnary(client greetpb.GreetServiceClient, ctx *context.Context) {
+	greetRequest := greetpb.GreetRequest{Greeting: &greetpb.Greeting{FirstName: "Bartek", LastName: "DUUUPA"}}
+	greet, err := client.Greet(*ctx, &greetRequest)
+	if err != nil {
+		log.Print("server returned error")
 		log.Println(err)
 	}
 	log.Println(greet.Result)
